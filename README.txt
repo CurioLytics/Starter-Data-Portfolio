@@ -1,4 +1,4 @@
-Welcome to My Portfolio Repository!
+Welcome!
 
 This repository is a collection of focused projects that I've developed to explore various aspects of data science and programming. It includes a range of activities such as data analysis, visualization, and machine learning, implemented in SQL and Python.
 
