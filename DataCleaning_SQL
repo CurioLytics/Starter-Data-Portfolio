@@ -1,121 +1,136 @@
-/*
-cleaning data
-*/
-select *
-from PortfolioProject.dbo.NashvilleHousing
-Select SaleDateConverted, SaleDate, convert(date, SaleDate)
-from PortfolioProject.dbo.NashvilleHousing
-alter table NashvilleHousing
-alter column SaleDate  date;
-alter table NashvilleHousing
-add SaleDateConverted Date;
-update NashvilleHousing
-set SaleDateConverted = convert(date,SaleDate)
---populate property address data
-Select distinct ParcelID
-from PortfolioProject.dbo.NashvilleHousing
---where PropertyAddress is null
-order by ParcelID
-select a.ParcelID, a.PropertyAddress, b.ParcelID , b.PropertyAddress, ISNULL(a.PropertyAddress, b.PropertyAddress)
-from PortfolioProject.dbo.NashvilleHousing a
-join  PortfolioProject.dbo.NashvilleHousing b
-on a.ParcelID = b.ParcelID
-and a.[UniqueID] <> b.[UniqueID]
-where a.PropertyAddress is null
-update a
-set PropertyAddress = ISNULL(a.PropertyAddress, b.PropertyAddress)
-from PortfolioProject.dbo.NashvilleHousing a
-join  PortfolioProject.dbo.NashvilleHousing b
-on a.ParcelID = b.ParcelID
-and a.[UniqueID] <> b.[UniqueID]
-where a.PropertyAddress is null
---Breaking property address into address, city, state
-Select PropertyAddress
-from PortfolioProject.dbo.NashvilleHousing
---where PropertyAddress is null
---order by ParcelID
-select
-substring(PropertyAddress, 1, CHARINDEX(',', PropertyAddress)-1) as Address,
-substring(PropertyAddress, CHARINDEX(',', PropertyAddress)+1,len(PropertyAddress)) as city
-from PortfolioProject.dbo.NashvilleHousing
-alter table NashvilleHousing
-add SplitAddress Nvarchar(225);
-update NashvilleHousing
-set SplitAddress = substring(PropertyAddress, 1, CHARINDEX(',', PropertyAddress)-1)
-alter table NashvilleHousing
-add SplitCity Nvarchar(225);
-update NashvilleHousing
-set SplitCity = substring(PropertyAddress, CHARINDEX(',', PropertyAddress)+1,len(PropertyAddress))
-select SplitAddress, SplitCity
-from PortfolioProject.dbo.NashvilleHousing
---split owener address
-select OwnerAddress
-from PortfolioProject.dbo.NashvilleHousing
-select
-parsename(replace(OwnerAddress,',','.'), 3),
-parsename(replace(OwnerAddress,',','.'), 2),
-parsename(replace(OwnerAddress,',','.'), 1)
-from PortfolioProject.dbo.NashvilleHousing
-alter table NashvilleHousing
-add OwnerSplitAddress Nvarchar(225);
-update NashvilleHousing
-set OwnerSplitAddress = parsename(replace(OwnerAddress,',','.'), 3)
-alter table NashvilleHousing
-add OwnerSplitCity Nvarchar(225);
-update NashvilleHousing
-set OwnerSplitCity = parsename(replace(OwnerAddress,',','.'), 2)
-alter table NashvilleHousing
-add OwnerSplitState Nvarchar(225);
-update NashvilleHousing
-set OwnerSplitState = parsename(replace(OwnerAddress,',','.'), 1)
---change 0 and 1 to yes and no
-select distinct(SoldAsVacant), count(SoldAsVacant)
-from PortfolioProject.dbo.NashvilleHousing
-group by SoldAsVacant
-order by 2
-select SoldAsVacant
-, case when SoldAsVacant = 0 then 'No'
-when SoldAsVacant = 1 then 'Yes'
-else cast(SoldAsVacant as varchar(10))
-end
-from PortfolioProject.dbo.NashvilleHousing
-alter table PortfolioProject.dbo.NashvilleHousing
-add Sold varchar(3)
-update PortfolioProject.dbo.NashvilleHousing
-set Sold = case
-when SoldAsVacant = 0 then 'No'
-when SoldAsVacant =1 then 'Yes'
-else 'Unknown'
-end
-alter table PortfolioProject.dbo.NashvilleHousing
-drop column SoldAsVacant
---delete duplicate
---way 1: using row number and cte
-with RowNumCTE as(
-select *,
-ROW_NUMBER() over (
-partition by ParcelID,
-PropertyAddress,
-SalePrice,
-SaleDate,
-LegalReference
-Order by
-UniqueID
-) row_num
-from PortfolioProject.dbo.NashvilleHousing
-)
-select *
-from RowNumCTE
-where row_num >1
---way 2: using group by to group the rows that have same attributes (except ID), then select rows which have count >1
-with dup as(
-select count() as countdup
-from PortfolioProject.dbo.NashvilleHousing
-group by PropertyAddress,
-SalePrice,
-SaleDate,
-LegalReference
-having count()=1
-)
-select *  --delete
-from dup
+-- =============================================  
+-- Handling SaleDate Conversion  
+-- =============================================  
+ALTER TABLE NashvilleHousing  
+ALTER COLUMN SaleDate DATE;  
+
+ALTER TABLE NashvilleHousing  
+ADD SaleDateConverted DATE;  
+
+UPDATE NashvilleHousing  
+SET SaleDateConverted = CONVERT(DATE, SaleDate);  
+
+-- Verify date conversion  
+SELECT SaleDateConverted, SaleDate, CONVERT(DATE, SaleDate)   
+FROM PortfolioProject.dbo.NashvilleHousing;
+
+-- =============================================  
+-- Standardizing Property Address  
+-- =============================================  
+-- Find missing property addresses  
+SELECT DISTINCT a.ParcelID,   
+                a.PropertyAddress,   
+                b.ParcelID,   
+                b.PropertyAddress  
+FROM PortfolioProject.dbo.NashvilleHousing a  
+JOIN PortfolioProject.dbo.NashvilleHousing b  
+ON a.ParcelID = b.ParcelID   
+AND a.[UniqueID] <> b.[UniqueID]  
+WHERE a.PropertyAddress IS NULL  
+ORDER BY a.ParcelID;  
+
+-- Update missing property addresses  
+UPDATE a  
+SET PropertyAddress = ISNULL(a.PropertyAddress, b.PropertyAddress)  
+FROM PortfolioProject.dbo.NashvilleHousing a  
+JOIN PortfolioProject.dbo.NashvilleHousing b  
+ON a.ParcelID = b.ParcelID   
+AND a.[UniqueID] <> b.[UniqueID]  
+WHERE a.PropertyAddress IS NULL;
+
+-- =============================================  
+-- Splitting Property Address into Address and City  
+-- =============================================  
+ALTER TABLE NashvilleHousing  
+ADD SplitAddress NVARCHAR(225);  
+
+UPDATE NashvilleHousing  
+SET SplitAddress = SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) - 1);  
+
+ALTER TABLE NashvilleHousing  
+ADD SplitCity NVARCHAR(225);  
+
+UPDATE NashvilleHousing  
+SET SplitCity = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) + 1, LEN(PropertyAddress));  
+
+SELECT SplitAddress, SplitCity  
+FROM PortfolioProject.dbo.NashvilleHousing;
+
+-- =============================================  
+-- Splitting Owner Address into Components  
+-- =================================------------  
+ALTER TABLE NashvilleHousing  
+ADD OwnerSplitAddress NVARCHAR(225);  
+
+UPDATE NashvilleHousing  
+SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 3);  
+
+ALTER TABLE NashvilleHousing  
+ADD OwnerSplitCity NVARCHAR(225);  
+
+UPDATE NashvilleHousing  
+SET OwnerSplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 2);  
+
+ALTER TABLE NashvilleHousing  
+ADD OwnerSplitState NVARCHAR(225);  
+
+UPDATE NashvilleHousing  
+SET OwnerSplitState = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 1);
+
+-- =============================================  
+-- Standardizing SoldAsVacant Column  
+-- =============================================  
+SELECT DISTINCT SoldAsVacant, COUNT(SoldAsVacant)  
+FROM PortfolioProject.dbo.NashvilleHousing  
+GROUP BY SoldAsVacant  
+ORDER BY 2;  
+
+ALTER TABLE PortfolioProject.dbo.NashvilleHousing  
+ADD Sold VARCHAR(3);  
+
+UPDATE PortfolioProject.dbo.NashvilleHousing  
+SET Sold = CASE  
+    WHEN SoldAsVacant = 0 THEN 'No'  
+    WHEN SoldAsVacant = 1 THEN 'Yes'  
+    ELSE 'Unknown'  
+END;  
+
+ALTER TABLE PortfolioProject.dbo.NashvilleHousing  
+DROP COLUMN SoldAsVacant;
+
+-- =============================================  
+-- Removing Duplicate Records  
+-- Using ROW_NUMBER() method  
+-- =============================================  
+WITH RowNumCTE AS (  
+    SELECT *,  
+        ROW_NUMBER() OVER (  
+            PARTITION BY ParcelID,  
+                         PropertyAddress,  
+                         SalePrice,  
+                         SaleDate,  
+                         LegalReference  
+            ORDER BY UniqueID  
+        ) row_num  
+    FROM PortfolioProject.dbo.NashvilleHousing  
+)  
+SELECT *  
+FROM RowNumCTE  
+WHERE row_num > 1;  
+
+-- Alternate method: Using GROUP BY to identify duplicates  
+WITH dup AS (  
+    SELECT PropertyAddress,  
+           SalePrice,  
+           SaleDate,  
+           LegalReference,  
+           COUNT(*) as countdup  
+    FROM PortfolioProject.dbo.NashvilleHousing  
+    GROUP BY PropertyAddress,  
+           SalePrice,  
+           SaleDate,  
+           LegalReference  
+    HAVING COUNT(*) > 1  
+)  
+SELECT *  -- Delete or process duplicates as needed  
+FROM dup;
