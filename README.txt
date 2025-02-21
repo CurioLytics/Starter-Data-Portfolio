@@ -1,7 +1,4 @@
 Welcome!
-
-This repository is a collection of focused projects that I've developed to explore various aspects of data science and programming. It includes a range of activities such as data analysis, visualization, and machine learning, implemented in SQL and Python.
-
 What You'll Find Here:
 
 Data Analysis: Projects that dive into datasets to uncover insights and patterns.
